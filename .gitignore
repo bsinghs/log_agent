@@ -1,2 +1,4 @@
 log_agent_env/
 .env
+sample.db
+bfg-1.14.0.jar
