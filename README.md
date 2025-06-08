@@ -43,3 +43,11 @@ python log_agent.py
 ## Troubleshooting
 - Make sure your `.env` is set correctly with a valid OpenAI API key.
 - Ensure virtual environment is activated before running scripts.
+
+
+
+------------
+personal notes:
+C:\Users\bhaja\dev\llm_agents\log_db_agent_windows>aws bedrock list-foundation-models --region us-east-1
+C:\Users\bhaja\dev\llm_agents\log_db_agent_windows>aws sts get-caller-identity
+npp+ (docs)

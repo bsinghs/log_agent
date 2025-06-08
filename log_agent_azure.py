@@ -1,4 +1,5 @@
 import os
+import json
 import sqlite3
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -8,10 +9,12 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 
+
 def read_log_file(file_path):
     """Reads the log file and returns its content."""
     with open(file_path, "r") as f:
         return f.read()
+
 
 def get_db_schema_with_data(db_path="sample.db", sample_limit=5):
     """Returns schema and sample rows from each table."""
@@ -22,7 +25,7 @@ def get_db_schema_with_data(db_path="sample.db", sample_limit=5):
     tables = cursor.fetchall()
 
     schema_with_data = {}
-    for table_name, in tables:
+    for (table_name,) in tables:
         # Schema
         cursor.execute(f"PRAGMA table_info({table_name});")
         columns = cursor.fetchall()
@@ -32,7 +35,7 @@ def get_db_schema_with_data(db_path="sample.db", sample_limit=5):
                 "type": col[2],
                 "notnull": bool(col[3]),
                 "default": col[4],
-                "primary_key": bool(col[5])
+                "primary_key": bool(col[5]),
             }
             for col in columns
         ]
@@ -41,10 +44,7 @@ def get_db_schema_with_data(db_path="sample.db", sample_limit=5):
         cursor.execute(f"SELECT * FROM {table_name} LIMIT {sample_limit};")
         rows = cursor.fetchall()
 
-        schema_with_data[table_name] = {
-            "schema": schema_info,
-            "sample_rows": rows
-        }
+        schema_with_data[table_name] = {"schema": schema_info, "sample_rows": rows}
 
     conn.close()
     return schema_with_data
@@ -52,7 +52,9 @@ def get_db_schema_with_data(db_path="sample.db", sample_limit=5):
 
 def analyze_log_and_system(log_text, schema_with_data, code_snippets):
     # Create a formatted view of code
-    code_summary = "\n\n".join([f"# File: {name}\n{content}" for name, content in code_snippets])
+    code_summary = "\n\n".join(
+        [f"# File: {name}\n{content}" for name, content in code_snippets]
+    )
 
     prompt = f"""
 You are helping debug an application that includes a database and some Python code.
@@ -77,10 +79,11 @@ Determine whether the issue is caused by the database or by the code. Suggest th
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "You are an expert Python + SQL bug fixer."},
-            {"role": "user", "content": prompt}
-        ]
+            {"role": "user", "content": prompt},
+        ],
     )
     return response.choices[0].message.content
+
 
 def read_code_files(directory="code_snippet", extensions=(".py",), max_files=5):
     """Reads up to `max_files` Python files in the given directory."""
@@ -102,6 +105,48 @@ def read_code_files(directory="code_snippet", extensions=(".py",), max_files=5):
 
     return code_snippets
 
+def maybe_execute_sql_fix(suggestion, db_path="sample.db"):
+    import sqlite3
+    import re
+
+    # Try to extract SQL queries from the suggestion
+    sql_candidates = re.findall(r"(SELECT|UPDATE|DELETE|INSERT|ALTER|CREATE|DROP).*?;", suggestion, re.IGNORECASE | re.DOTALL)
+    
+    if not sql_candidates:
+        print("ℹ️ No valid SQL query detected. Looks like the fix is in the code, not the database.")
+        return
+
+    print("\n⚠️ Detected SQL Query:\n")
+    for query in sql_candidates:
+        print(query.strip())
+
+    confirm = input("\nDo you want to run this query on the database? (yes/no): ").lower()
+    if confirm != "yes":
+        print("🛑 Skipped execution.")
+        return
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        for query in sql_candidates:
+            cursor.execute(query.strip())
+        conn.commit()
+        print("✅ SQL query executed successfully.")
+    except Exception as e:
+        print("❌ Error executing query:", e)
+    finally:
+        conn.close()
+
+def save_to_memory(log_text, suggestion, memory_path="agent_memory.json"):
+    memory = []
+    if os.path.exists(memory_path):
+        with open(memory_path, "r") as f:
+            memory = json.load(f)
+
+    memory.append({"log": log_text, "suggestion": suggestion})
+
+    with open(memory_path, "w") as f:
+        json.dump(memory, f, indent=2)
 
 if __name__ == "__main__":
     log_content = read_log_file("error.log")
@@ -112,3 +157,5 @@ if __name__ == "__main__":
 
     print("=== Suggestions from GPT ===")
     print(result)
+
+    maybe_execute_sql_fix(result)

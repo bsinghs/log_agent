@@ -1,2 +1,6 @@
 openai
 python-dotenv
+ruff
+
+# Additional dependencies for bedrock
+boto3

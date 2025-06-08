@@ -1,5 +1,6 @@
 import sqlite3
 
+
 def create_sample_db():
     conn = sqlite3.connect("sample.db")
     cursor = conn.cursor()
@@ -14,11 +15,18 @@ def create_sample_db():
     """)
 
     # Insert sample data
-    cursor.execute("INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)", ("alice", "alice@example.com"))
-    cursor.execute("INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)", ("bob", "bob@example.com"))
+    cursor.execute(
+        "INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)",
+        ("alice", "alice@example.com"),
+    )
+    cursor.execute(
+        "INSERT OR IGNORE INTO users (username, email) VALUES (?, ?)",
+        ("bob", "bob@example.com"),
+    )
 
     conn.commit()
     conn.close()
+
 
 if __name__ == "__main__":
     create_sample_db()
