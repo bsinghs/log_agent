@@ -1,6 +1,13 @@
 openai
 python-dotenv
 ruff
+crewai
+crewai-tools
+
 
 # Additional dependencies for bedrock
 boto3
+
+
+# UI
+streamlit
